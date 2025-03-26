@@ -1,0 +1,115 @@
+{% extends "tournament_details.html" %}
+
+{% block title %}Fixtures{% endblock %}
+
+{% block content %}
+    <style>
+        .fixtures-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .fixture-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .fixture-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+
+        /* Special styling for Semifinals & Final */
+        .playoff-match {
+            background-color: #FFD700; /* Gold color for playoffs */
+            font-weight: bold;
+            border: 2px solid #333;
+        }
+
+        .team-names {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .winner {
+            color: green;
+            font-weight: bold;
+        }
+
+        .conduct-match {
+            text-decoration: none;
+            background-color: #007BFF;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .conduct-match:hover {
+            background-color: #0056b3;
+        }
+
+        .no-fixtures {
+            text-align: center;
+            color: red;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .fixture-item {
+                flex-direction: column;
+                text-align: center;
+            }
+            .conduct-match {
+                margin-top: 5px;
+            }
+        }
+    </style>
+
+    <div class="fixtures-container">
+        {% if fixture_list and fixture_list[0].label %}
+            <h2>Playoff Fixtures</h2>
+        {% else %}
+            <h2>Group Stage Fixtures</h2>
+        {% endif %}
+
+        {% if fixture_list %}
+            <ul class="fixture-list">
+                {% for fixture in fixture_list %}
+                    <li class="fixture-item {% if fixture.label and fixture.label != 'Group Stage' %}playoff-match{% endif %}">
+                        <span class="team-names">
+                            {% if fixture.label and fixture.label != 'Group Stage' %}
+                                <strong>{{ fixture.label }}:</strong> {{ fixture.team1 }} vs {{ fixture.team2 }}
+                            {% else %}
+                                Match {{ fixture.match_number }}: {{ fixture.team1 }} vs {{ fixture.team2 }}
+                            {% endif %}
+                        </span>
+                        {% if fixture.winner %}
+                            <span class="winner">Winner: {{ fixture.winner }}</span>
+                        {% else %}
+                            <a href="{{ url_for('conduct_match', fixture_id=fixture.id) }}" class="conduct-match">Conduct Match</a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-fixtures">No fixtures available. Please generate fixtures first.</p>
+        {% endif %}
+    </div>
+{% endblock %}

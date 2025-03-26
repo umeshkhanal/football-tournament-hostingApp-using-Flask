@@ -1,0 +1,64 @@
+{% extends "tournament_details.html" %}
+
+{% block content %}
+<h2 style="text-align: center; color: #333;">Top 5 Goal Scorers</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Player Name</th>
+            <th>Team</th>
+            <th>Goals Scored</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for player in top_scorers %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ player.name }}</td>
+            <td>{{ player.team.name }}</td>
+            <td>{{ player.goals }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<style>
+    table {
+        width: 100%;
+        max-width: 600px;
+        margin: 20px auto;
+        border-collapse: collapse;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        background: white;
+    }
+
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border-bottom: 1px solid #ddd;
+    }
+
+    th {
+        background: #007BFF;
+        color: white;
+        font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+
+    tr:hover {
+        background: #f1f1f1;
+    }
+
+    @media (max-width: 600px) {
+        table {
+            width: 90%;
+        }
+    }
+</style>
+
+{% endblock %}

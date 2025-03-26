@@ -1,0 +1,96 @@
+{% extends "tournament_details.html" %}
+
+{% block title %}Match Results{% endblock %}
+
+{% block content %}
+<h2 class="heading">Past Match Results</h2>
+
+{% if results %}
+    <div class="results-container">
+        {% for result in results %}
+        <div class="match-box">
+            <h3>Match {{ result.match_id }}</h3>
+            <div class="match-header">
+                <span class="team-name">{{ result.team1 }}</span>
+                <span class="score-box">{{ result.team1_score }} - {{ result.team2_score }}</span>
+                <span class="team-name">{{ result.team2 }}</span>
+            </div>
+            <div class="scorers">
+                <span class="team-scorers">⚽ {{ ", ".join(result.team1_scorers) }}</span>
+                <span class="team-scorers">⚽ {{ ", ".join(result.team2_scorers) }}</span>
+            </div>
+            <p class="winner"><strong>Winner:</strong> {{ result.winner }}</p>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="no-results">No match results available.</p>
+{% endif %}
+
+<style>
+    .heading {
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    .results-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .match-box {
+        width: 50%;
+        background: #f9f9f9;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .team-name {
+        flex: 1;
+        text-align: center;
+    }
+
+    .score-box {
+        background: #007bff;
+        color: white;
+        padding: 5px 15px;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+
+    .scorers {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        font-size: 1rem;
+        color: #555;
+    }
+
+    .winner {
+        margin-top: 10px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .no-results {
+        text-align: center;
+        font-size: 1.2rem;
+        color: #888;
+    }
+</style>
+{% endblock %}

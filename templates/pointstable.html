@@ -1,0 +1,68 @@
+{% extends "tournament_details.html" %}
+
+{% block content %}
+<h2 style="text-align: center; color: #333;">Points Table - {{ tournament.name }}</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Team</th>
+            <th>W</th>
+            <th>L</th>
+            <th>D</th>
+            <th>GD</th>
+            <th>Points</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team in points_table %}
+        <tr>
+            <td><strong>{{ team.team.name }}</strong></td>
+            <td>{{ team.wins }}</td>
+            <td>{{ team.losses }}</td>
+            <td>{{ team.draws }}</td>
+            <td>{{ team.goals_scored - team.goals_conceded }}</td>
+            <td><strong>{{ team.points }}</strong></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<style>
+    table {
+        width: 100%;
+        max-width: 600px;
+        margin: 20px auto;
+        border-collapse: collapse;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        background: white;
+    }
+
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border-bottom: 1px solid #ddd;
+    }
+
+    th {
+        background: #007BFF;
+        color: white;
+        font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+
+    tr:hover {
+        background: #f1f1f1;
+    }
+
+    @media (max-width: 600px) {
+        table {
+            width: 90%;
+        }
+    }
+</style>
+
+{% endblock %}
