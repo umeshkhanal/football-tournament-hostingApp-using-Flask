@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import desc, func
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
@@ -31,8 +31,8 @@ import json
 class Fixture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
-    team1_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
-    team2_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    team1_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    team2_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
     winner = db.Column(db.String(100), nullable=True)  # Store winner's name
     goals = db.Column(db.Text, nullable=True)  # Store goals as JSON
 
@@ -168,17 +168,6 @@ def generate_playoff_fixtures(tournament, total_group_matches):
         match_id += 1
         final_match = {"match_id": match_id, "team1": "Winner of Semi 1", "team2": "Winner of Semi 2"}
         playoff_fixtures.append(final_match)
-
-    # **7️⃣ Save Playoff Fixtures to Database**
-    for fixture in playoff_fixtures:
-        new_fixture = Fixture(
-            tournament_id=tournament.id,
-            team1_id=fixture["team1"] if isinstance(fixture["team1"], int) else None,
-            team2_id=fixture["team2"] if isinstance(fixture["team2"], int) else None
-        )
-        db.session.add(new_fixture)
-
-    db.session.commit()
     return playoff_fixtures
 
 
@@ -209,6 +198,7 @@ def initialize_points_table(tournament_id):
 
 def get_points_table(tournament_id):
     teams = PointsTable.query.filter_by(tournament_id=tournament_id).all()
+    tournament = Tournament.query.get(tournament_id)
 
     # Compute Goal Difference (GD)
     for team in teams:
@@ -217,7 +207,27 @@ def get_points_table(tournament_id):
     # Sort Teams: Higher Points → Higher GD → Higher Goals Scored
     sorted_teams = sorted(teams, key=lambda x: (x.points, x.goal_difference, x.goals_scored), reverse=True)
 
-    return sorted_teams
+    # Check if all group matches are completed
+    teams_count = len(teams)
+    total_group_matches = (teams_count * (teams_count - 1)) // 2  # Single round-robin formula
+    completed_matches = db.session.query(func.count(Result.id)).join(Fixture).filter(
+        Fixture.tournament_id == tournament_id
+    ).scalar()
+
+    # Determine number of qualifying teams
+    if teams_count == 3:
+        qualifying_teams = 2
+    elif 4 <= teams_count <= 5:
+        qualifying_teams = 3
+    else:
+        qualifying_teams = 4  # Default: 4 for 6+ teams
+
+    # Return qualified teams only if group stage is complete
+    qualified_teams = set()
+    if completed_matches >= total_group_matches:
+        qualified_teams = {sorted_teams[i].team_id for i in range(qualifying_teams)}
+
+    return sorted_teams, qualified_teams
 
 
 
@@ -312,76 +322,40 @@ import time
 @app.route('/get_fixtures/<int:tournament_id>', methods=['GET'])
 def get_fixtures(tournament_id):
     tournament = Tournament.query.get_or_404(tournament_id)
-
-    # Fetch all fixtures
-    fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()
-    
     teams_count = Team.query.filter_by(tournament_id=tournament.id).count()
 
     if tournament.tournament_type == "Round Robin":
-        total_group_matches = (teams_count * (teams_count - 1)) // 2  # Single round
+        total_group_matches = (teams_count * (teams_count - 1)) // 2
     elif tournament.tournament_type == "Double Round Robin":
-        total_group_matches = teams_count * (teams_count - 1)  # Double round
+        total_group_matches = teams_count * (teams_count - 1)
     else:
-        total_group_matches = 0  # Other formats (like Knockout) are not considered here
-    
+        total_group_matches = 0  
+
     completed_matches = db.session.query(func.count(Result.id)).join(Fixture).filter(
         Fixture.tournament_id == tournament_id
     ).scalar()
 
     if completed_matches == total_group_matches:
-        # **1️⃣ Count total fixtures for this tournament**
         total_tournament_fixtures = db.session.query(func.count(Fixture.id)).filter(
             Fixture.tournament_id == tournament.id
         ).scalar()
 
-        # **2️⃣ Check if playoffs already exist**
-        if total_tournament_fixtures > total_group_matches:
-            # Fetch only **playoff fixtures** (matches beyond group stage)
-            playoff_fixtures = db.session.query(Fixture).filter(
-                Fixture.tournament_id == tournament.id
-            ).order_by(Fixture.id.asc()).offset(total_group_matches).all()
-        else:
-            # Generate new playoffs if they don’t exist
+        if total_tournament_fixtures == total_group_matches:
             playoff_fixtures = generate_playoff_fixtures(tournament, total_group_matches)
-        
-        time.sleep(1)  # Ensure DB commit completes
-        fixture_list = []
-        num_fixtures = len(playoff_fixtures)
 
-        # **3️⃣ Process fixtures & assign labels**
-        for index, fixture in enumerate(playoff_fixtures):
-            team1 = Team.query.get(fixture.team1_id) if fixture.team1_id else None
-            team2 = Team.query.get(fixture.team2_id) if fixture.team2_id else None
+            for fixture in playoff_fixtures:
+                new_fixture = Fixture(
+                    tournament_id=tournament.id,
+                    team1_id=fixture["team1"] if isinstance(fixture["team1"], int) else None,
+                    team2_id=fixture["team2"] if isinstance(fixture["team2"], int) else None
+                )
+                db.session.add(new_fixture)
 
-            # **Assign match labels based on the number of playoff matches**
-            label = None
-            if num_fixtures == 1:
-                label = "Final"
-            elif num_fixtures == 2:
-                label = "Semifinal"
-            elif num_fixtures == 3:
-                if index == 0:
-                    label = "Semifinal 1"
-                elif index == 1:
-                    label = "Semifinal 2"
-                else:
-                    label = "Final"
+            db.session.commit()
+            time.sleep(1)  
 
-            fixture_list.append({
-                "id": fixture.id,
-                "match_number": fixture.id,  # Match ID from database
-                "team1": team1.name if team1 else "TBD",
-                "team2": team2.name if team2 else "TBD",
-                "winner": fixture.winner if fixture.winner else None,
-                "label": label
-            })
-
-        return render_template('fixtures_details.html', tournament=tournament, fixture_list=fixture_list)
-
-
-
-    # If group stage isn't completed, show normal fixtures
+    fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()
+    
     if not fixtures:
         generated_fixtures = generate_fixtures(tournament)
         if generated_fixtures:
@@ -395,34 +369,35 @@ def get_fixtures(tournament_id):
             ]
             db.session.bulk_save_objects(new_fixtures)
             db.session.commit()
-            time.sleep(1)  # Ensure DB commit completes
-            
-            fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()  # Reload data
+            time.sleep(1)  
+            fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()  
 
     fixture_list = []
+    playoff_fixtures = fixtures[total_group_matches:]  
+    semifinal_winners = []  
+
     for index, fixture in enumerate(fixtures):
         team1 = Team.query.get(fixture.team1_id) if fixture.team1_id else None
         team2 = Team.query.get(fixture.team2_id) if fixture.team2_id else None
         label = None
 
-        # Check if it's beyond group stage
         if index >= total_group_matches:
             knockout_index = index - total_group_matches
-            num_fixtures = len(fixtures) - total_group_matches
+            num_fixtures = len(playoff_fixtures)
 
             if num_fixtures == 1:
                 label = "Final"
             elif num_fixtures == 2:
-                label = "Semifinal"
+                label = "Semifinal" if knockout_index == 0 else "Final"
             elif num_fixtures == 3:
-                if knockout_index == 0:
-                    label = "Semifinal 1"
-                elif knockout_index == 1:
-                    label = "Semifinal 2"
-                else:
-                    label = "Final"
+                label = "Semifinal 1" if knockout_index == 0 else ("Semifinal 2" if knockout_index == 1 else "Final")
             else:
                 label = f"Knockout Match {knockout_index + 1}"
+
+        if label and "Semifinal" in label and fixture.winner:
+            winner_team = Team.query.filter_by(name=fixture.winner).first()
+            if winner_team:
+                semifinal_winners.append(winner_team.id)
 
         fixture_list.append({
             "id": fixture.id,
@@ -433,9 +408,18 @@ def get_fixtures(tournament_id):
             "winner": fixture.winner if fixture.winner else None
         })
 
+    for fixture in playoff_fixtures:
+        label = fixture_list[fixtures.index(fixture)]["label"]
+        if "Final" in label:
+            if len(semifinal_winners) == 2:
+                if fixture.team1_id is None:
+                    fixture.team1_id = semifinal_winners[1]
+            elif len(semifinal_winners) == 1:
+                if fixture.team2_id is None:
+                    fixture.team2_id = semifinal_winners[0]
+            db.session.commit()
+            time.sleep(1)
     return render_template('fixtures_details.html', tournament=tournament, fixture_list=fixture_list)
-
-
 
 
 @app.route('/team/<int:team_id>/players', methods=['GET', 'POST'])
@@ -532,7 +516,7 @@ def update_score(fixture_id):
 @app.route('/end_match/<int:fixture_id>', methods=['POST'])
 def end_match(fixture_id):
     fixture = Fixture.query.get_or_404(fixture_id)
-
+    
     # Extract goals from JSON request
     data = request.get_json()
     team1_goals = data.get("team1_goals", [])  # List of player IDs for Team 1
@@ -551,33 +535,58 @@ def end_match(fixture_id):
     fixture.team1_score = team1_score
     fixture.team2_score = team2_score
 
-    # Get PointsTable entries
-    team1_entry = PointsTable.query.filter_by(team_id=fixture.team1_id, tournament_id=fixture.tournament_id).first()
-    team2_entry = PointsTable.query.filter_by(team_id=fixture.team2_id, tournament_id=fixture.tournament_id).first()
+    tournament = Tournament.query.get_or_404(fixture.tournament_id)
+    total_teams = tournament.num_teams  # Total number of teams
 
-    # Update goals scored & conceded
-    team1_entry.goals_scored += team1_score
-    team1_entry.goals_conceded += team2_score
-    team2_entry.goals_scored += team2_score
-    team2_entry.goals_conceded += team1_score
+    # Determine total group matches based on tournament type
+    if tournament.tournament_type == "Round Robin":
+        total_group_matches = (total_teams * (total_teams - 1)) // 2
+    elif tournament.tournament_type == "Double Round Robin":
+        total_group_matches = (total_teams * (total_teams - 1))
+    else:
+        total_group_matches = 0
 
-    # Determine match result and update points
+    # Count total completed matches so far
+    completed_matches = Fixture.query.filter(
+        Fixture.tournament_id == fixture.tournament_id,
+        Fixture.winner.isnot(None)
+    ).count()
+
+    is_playoff = completed_matches >= total_group_matches  # True if match is playoff
+
+    # Determine match result
     if team1_score > team2_score:
         fixture.winner = fixture.team1.name
-        team1_entry.wins += 1
-        team1_entry.points += 3
-        team2_entry.losses += 1
     elif team2_score > team1_score:
         fixture.winner = fixture.team2.name
-        team2_entry.wins += 1
-        team2_entry.points += 3
-        team1_entry.losses += 1
     else:
         fixture.winner = "Draw"
-        team1_entry.draws += 1
-        team2_entry.draws += 1
-        team1_entry.points += 1
-        team2_entry.points += 1
+
+    # **Only update points table if it's a group stage match**
+    if not is_playoff:
+        team1_entry = PointsTable.query.filter_by(team_id=fixture.team1_id, tournament_id=fixture.tournament_id).first()
+        team2_entry = PointsTable.query.filter_by(team_id=fixture.team2_id, tournament_id=fixture.tournament_id).first()
+
+        # Update goals scored & conceded
+        team1_entry.goals_scored += team1_score
+        team1_entry.goals_conceded += team2_score
+        team2_entry.goals_scored += team2_score
+        team2_entry.goals_conceded += team1_score
+
+        # Update wins, losses, draws, and points only for group stage
+        if team1_score > team2_score:
+            team1_entry.wins += 1
+            team1_entry.points += 3
+            team2_entry.losses += 1
+        elif team2_score > team1_score:
+            team2_entry.wins += 1
+            team2_entry.points += 3
+            team1_entry.losses += 1
+        else:
+            team1_entry.draws += 1
+            team2_entry.draws += 1
+            team1_entry.points += 1
+            team2_entry.points += 1
 
     db.session.commit()
     return jsonify({
@@ -588,14 +597,33 @@ def end_match(fixture_id):
     })
 
 
+
 @app.route('/results/<int:tournament_id>', methods=['GET'])
 def match_results(tournament_id):
     tournament = Tournament.query.get_or_404(tournament_id)
-    fixtures = Fixture.query.filter(Fixture.tournament_id == tournament_id, Fixture.winner.isnot(None)).all()
+    total_teams = tournament.num_teams  # Total number of teams
+
+    # Determine total group matches based on tournament type
+    if tournament.tournament_type == "Round Robin":
+        total_group_matches = (total_teams * (total_teams - 1)) // 2
+    elif tournament.tournament_type == "Double Round Robin":
+        total_group_matches = (total_teams * (total_teams - 1))
+    else:
+        total_group_matches = 0
+
+    # Get all completed fixtures (matches with a winner)
+    fixtures = Fixture.query.filter(
+        Fixture.tournament_id == tournament_id, 
+        Fixture.winner.isnot(None)
+    ).all()
+
+    total_completed_matches = len(fixtures)
+    total_playoff_matches = total_completed_matches - total_group_matches if total_completed_matches > total_group_matches else 0
 
     results = []
-    match_no=1
-    for fixture in fixtures:
+    match_no = 1
+
+    for index, fixture in enumerate(fixtures):
         team1 = Team.query.get(fixture.team1_id)
         team2 = Team.query.get(fixture.team2_id)
         goal_data = fixture.get_goals()
@@ -603,25 +631,47 @@ def match_results(tournament_id):
         team1_scorers = [Player.query.get(player_id).name for player_id in goal_data.get("team1", [])]
         team2_scorers = [Player.query.get(player_id).name for player_id in goal_data.get("team2", [])]
 
+        # Assign labels only to playoff matches
+        label = None
+        if index >= total_group_matches:
+            knockout_index = index - total_group_matches
+            num_fixtures = total_playoff_matches
+
+            if num_fixtures == 1:
+                label = "Final"
+            elif num_fixtures == 2:
+                label = "Semifinal" if knockout_index == 0 else "Final"
+            elif num_fixtures == 3:
+                label = "Semifinal 1" if knockout_index == 0 else ("Semifinal 2" if knockout_index == 1 else "Final")
+            else:
+                label = f"Knockout Match {knockout_index + 1}"
+
         results.append({
             "match_id": match_no,
-            "team1": team1.name,
-            "team2": team2.name,
+            "team1": team1.name if team1 else "TBD",
+            "team2": team2.name if team2 else "TBD",
             "team1_score": len(team1_scorers),
             "team2_score": len(team2_scorers),
             "team1_scorers": team1_scorers,
             "team2_scorers": team2_scorers,
-            "winner": fixture.winner  # Winner is now stored as team name
+            "winner": fixture.winner,  
+            "label": label  # Added playoff label
         })
-        match_no+=1
+        match_no += 1
 
     return render_template('results.html', tournament=tournament, results=results)
+
+
 
 @app.route('/points_table/<int:tournament_id>')
 def points_table(tournament_id):
     tournament = Tournament.query.get_or_404(tournament_id)
-    points_table = get_points_table(tournament_id)
-    return render_template("pointstable.html", tournament=tournament, points_table=points_table)
+    
+    # Get sorted teams & qualified teams separately
+    points_table, qualified_teams = get_points_table(tournament_id)
+    
+    return render_template("pointstable.html", tournament=tournament, points_table=points_table, qualified_teams=qualified_teams)
+
 
 @app.route('/top_scorers/<int:tournament_id>')
 def top_scorers(tournament_id):
@@ -639,4 +689,4 @@ def top_scorers(tournament_id):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
+    app.run(debug=True)

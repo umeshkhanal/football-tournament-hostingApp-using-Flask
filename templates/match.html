@@ -46,34 +46,56 @@
 
         let team1Goals = [];
         let team2Goals = [];
-
         function updateScore(team) {
-            let playerId = document.getElementById(team + "_scorer").value;
-            if (!playerId) {
-                alert("Select a player before adding a goal.");
-                return;
-            }
+            if (document.querySelector(".popup-box")) return;
 
-            fetch(`/update_score/{{ fixture.id }}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ scoring_team: team, player_id: playerId })
-            }).then(response => response.json())
-              .then(data => {
-                  document.getElementById("scoreboard").innerText = `${data.team1_score} - ${data.team2_score}`;
+            let confirmBox = document.createElement("div");
+            confirmBox.classList.add("popup-box");
+            confirmBox.innerHTML = `
+                <div class="popup-content">
+                    <h3>Confirm Goal</h3>
+                    <p>Are you sure it is GOAL? This action cannot be undone.</p>
+                    <button id="confirmGoalBtn">Yes</button>
+                    <button id="cancelBtn">No</button>
+                </div>
+            `;
+            document.body.appendChild(confirmBox);
 
-                  if (team === "team1") {
-                      team1Goals.push(playerId);
-                  } else {
-                      team2Goals.push(playerId);
-                  }
+            // If "Cancel" is clicked, remove the pop-up
+            document.getElementById("cancelBtn").addEventListener("click", () => {
+                document.querySelector(".popup-box").remove();
+            });
 
-                  let scorerList = document.getElementById(team + "_scorers");
-                  let playerName = document.querySelector(`#${team}_scorer option[value="${playerId}"]`).textContent;
-                  let newScorer = document.createElement("li");
-                  newScorer.textContent = playerName;
-                  scorerList.appendChild(newScorer);
-              }).catch(error => console.error("Error:", error));
+            // If "Yes, End Match" is clicked, proceed with ending the match
+            document.getElementById("confirmGoalBtn").addEventListener("click", () => {
+                document.querySelector(".popup-box").remove();
+                let playerId = document.getElementById(team + "_scorer").value;
+                if (!playerId) {
+                    alert("Select a player before adding a goal.");
+                    return;
+                }
+
+                fetch(`/update_score/{{ fixture.id }}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scoring_team: team, player_id: playerId })
+                }).then(response => response.json())
+                .then(data => {
+                    document.getElementById("scoreboard").innerText = `${data.team1_score} - ${data.team2_score}`;
+
+                    if (team === "team1") {
+                        team1Goals.push(playerId);
+                    } else {
+                        team2Goals.push(playerId);
+                    }
+
+                    let scorerList = document.getElementById(team + "_scorers");
+                    let playerName = document.querySelector(`#${team}_scorer option[value="${playerId}"]`).textContent;
+                    let newScorer = document.createElement("li");
+                    newScorer.textContent = playerName;
+                    scorerList.appendChild(newScorer);
+                }).catch(error => console.error("Error:", error));
+            });
         }
         function endMatch() {
             // Prevent duplicate pop-ups

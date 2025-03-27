@@ -4,12 +4,17 @@
 
 {% block content %}
 <h2 class="heading">Past Match Results</h2>
-
 {% if results %}
     <div class="results-container">
         {% for result in results %}
         <div class="match-box">
-            <h3>Match {{ result.match_id }}</h3>
+            <h3>
+                {% if result.label %}
+                    {{ result.label }}  
+                {% else %}
+                    Match {{ result.match_id }}
+                {% endif %}
+            </h3>
             <div class="match-header">
                 <span class="team-name">{{ result.team1 }}</span>
                 <span class="score-box">{{ result.team1_score }} - {{ result.team2_score }}</span>
@@ -26,6 +31,7 @@
 {% else %}
     <p class="no-results">No match results available.</p>
 {% endif %}
+
 
 <style>
     .heading {

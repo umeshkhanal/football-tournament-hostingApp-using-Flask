@@ -83,10 +83,10 @@
     </style>
 
     <div class="fixtures-container">
-        {% if fixture_list and fixture_list[0].label %}
+        {% if fixture_list and fixture_list[0].label!='Group Stage' %}
             <h2>Playoff Fixtures</h2>
         {% else %}
-            <h2>Group Stage Fixtures</h2>
+            <h2>Fixtures</h2>
         {% endif %}
 
         {% if fixture_list %}

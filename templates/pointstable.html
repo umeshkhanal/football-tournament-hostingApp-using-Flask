@@ -7,6 +7,7 @@
     <thead>
         <tr>
             <th>Team</th>
+            <th>M</th>
             <th>W</th>
             <th>L</th>
             <th>D</th>
@@ -17,7 +18,13 @@
     <tbody>
         {% for team in points_table %}
         <tr>
-            <td><strong>{{ team.team.name }}</strong></td>
+            <td>
+                <strong>
+                    {{ team.team.name }}
+                    {% if team.team_id in qualified_teams %} <span style="color: green;">(Q)</span> {% endif %}
+                </strong>
+            </td>
+            <td>{{ team.wins + team.losses+team.draws }}</td>
             <td>{{ team.wins }}</td>
             <td>{{ team.losses }}</td>
             <td>{{ team.draws }}</td>
