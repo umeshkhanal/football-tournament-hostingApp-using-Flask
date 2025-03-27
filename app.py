@@ -4,7 +4,8 @@ from sqlalchemy import desc, func
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tournament.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:119139@localhost:5432/tournament_db'
+
 db = SQLAlchemy(app)
 
 class Tournament(db.Model):
