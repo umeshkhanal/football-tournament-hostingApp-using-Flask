@@ -268,15 +268,19 @@ def logout():
 
 @app.route('/add_tournament', methods=['GET', 'POST'])
 def add_tournament():
-    if request.method == 'POST':
-        name = request.form['name']
-        tournament_type = request.form['tournament_type']
-        num_teams = request.form['num_teams']
-        new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams)
-        db.session.add(new_tournament)
-        db.session.commit()
-        return redirect(url_for('index'))
-    return render_template('add_tournament.html')
+    try:
+        if request.method == 'POST':
+            name = request.form['name']
+            tournament_type = request.form['tournament_type']
+            num_teams = request.form['num_teams']
+            new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams)
+            db.session.add(new_tournament)
+            db.session.commit()
+            return redirect(url_for('index'))
+        return render_template('add_tournament.html')
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
 
 @app.route('/tournament/<int:tournament_id>')
 def team_details(tournament_id):
