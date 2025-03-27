@@ -4,7 +4,7 @@ from sqlalchemy import desc, func
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:119139@localhost:5432/tournament'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:6543/postgres'
 
 db = SQLAlchemy(app)
 
@@ -255,15 +255,11 @@ def login():
 
 @app.route('/index')
 def index():
-    try:
-        if "user" not in session:
-            return redirect(url_for("login"))  # Redirect to login if not logged in
-    
-        tournaments = Tournament.query.all()
-        return render_template('index.html', tournaments=tournaments)
-    except Exception as e:
-        print("Error occurred:", str(e))
-        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+    if "user" not in session:
+        return redirect(url_for("login"))  # Redirect to login if not logged in
+
+    tournaments = Tournament.query.all()
+    return render_template('index.html', tournaments=tournaments)
 
 @app.route("/logout")
 def logout():
@@ -273,19 +269,15 @@ def logout():
 
 @app.route('/add_tournament', methods=['GET', 'POST'])
 def add_tournament():
-    try:
-        if request.method == 'POST':
-            name = request.form['name']
-            tournament_type = request.form['tournament_type']
-            num_teams = request.form['num_teams']
-            new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams)
-            db.session.add(new_tournament)
-            db.session.commit()
-            return redirect(url_for('index'))
-        return render_template('add_tournament.html')
-    except Exception as e:
-        print("Error occurred:", str(e))
-        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+    if request.method == 'POST':
+        name = request.form['name']
+        tournament_type = request.form['tournament_type']
+        num_teams = request.form['num_teams']
+        new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams)
+        db.session.add(new_tournament)
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('add_tournament.html')
 
 @app.route('/tournament/<int:tournament_id>')
 def team_details(tournament_id):
