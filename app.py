@@ -255,11 +255,15 @@ def login():
 
 @app.route('/index')
 def index():
-    if "user" not in session:
-        return redirect(url_for("login"))  # Redirect to login if not logged in
-
-    tournaments = Tournament.query.all()
-    return render_template('index.html', tournaments=tournaments)
+    try:
+        if "user" not in session:
+            return redirect(url_for("login"))  # Redirect to login if not logged in
+    
+        tournaments = Tournament.query.all()
+        return render_template('index.html', tournaments=tournaments)
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
 
 @app.route("/logout")
 def logout():
