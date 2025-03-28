@@ -3,53 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Tournament Management</title>
+    <title>Football Tournament Management</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
         body {
-            background-color: #f4f4f4;
+            background: url('https://source.unsplash.com/1600x900/?football,stadium') no-repeat center center/cover;
+            color: white;
+            text-align: center;
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
+            flex-direction: column;
+            padding: 20px;
         }
-        .login-container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
+        .container {
+            max-width: 850px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
         }
-        .login-container h3 {
-            margin-bottom: 20px;
+        .btn-custom {
+            padding: 12px 24px;
+            font-size: 18px;
             font-weight: bold;
-            color: #333;
+            border-radius: 8px;
         }
-        .btn-login {
+        .modal-content {
+            color: #000;
+        }
+        .nav-tabs .nav-link {
+            color: #007bff;
+        }
+        .nav-tabs .nav-link.active {
             background-color: #007bff;
             color: white;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .feature-card {
+            width: 200px;
+            padding: 15px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            transition: transform 0.3s ease-in-out;
+        }
+        .feature-card:hover {
+            transform: scale(1.1);
+        }
+        .feature img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 10px;
+        }
+        .feature p {
+            font-size: 16px;
             font-weight: bold;
         }
-        .btn-login:hover {
-            background-color: #0056b3;
-        }
     </style>
+    <script>
+        function validateSignup() {
+            var password = document.getElementById("password").value;
+            var confirmPassword = document.getElementById("confirm_password").value;
+            var errorText = document.getElementById("passwordError");
+    
+            if (password !== confirmPassword) {
+                errorText.style.display = "block";  // Show error message
+                return false;  // Prevent form submission
+            } else {
+                errorText.style.display = "none";  // Hide error message
+                return true;  // Allow form submission
+            }
+        }
+    </script>
 </head>
 <body>
+    <div class="container">
+        <h1 class="mb-3">⚽ Football Tournament Management</h1>
+        <p>Welcome to the <b>Ultimate football tournament manager!</b> Our platform makes it easy to organize, manage, and track your tournament.
+            From <b>team registration</b> to <b>automated fixture generation, live score updates, and player performance tracking</b>, everything is streamlined to ensure a smooth and exciting tournament experience! 🚀</p>
 
-    <div class="login-container">
-        <h3>Football Tournament Management Login</h3>
-        <form action="{{ url_for('login') }}" method="POST">
-            <div class="mb-3">
-                <input type="text" class="form-control" name="username" placeholder="Username" required>
+        <button class="btn btn-light btn-custom mt-3" data-bs-toggle="modal" data-bs-target="#authModal">Get Started</button>
+
+        <!-- Feature Highlights -->
+        <div class="feature">
+            <div class="feature-card">
+                <img src="https://cdn-icons-png.flaticon.com/512/1040/1040268.png" alt="Teams">
+                <p>Team Management</p>
             </div>
-            <div class="mb-3">
-                <input type="password" class="form-control" name="password" placeholder="Password" required>
+            <div class="feature-card">
+                <img src="https://cdn-icons-png.flaticon.com/512/168/168573.png" alt="Fixtures">
+                <p>Auto Fixtures</p>
             </div>
-            <button type="submit" class="btn btn-login w-100">Login</button>
-        </form>
+            <div class="feature-card">
+                <img src="https://cdn-icons-png.flaticon.com/512/809/809517.png" alt="Leaderboard">
+                <p>Live Leaderboard</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Authentication Modal -->
+    <div class="modal fade" id="authModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Join the Tournament Now!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tabs for Login/Signup -->
+                    <ul class="nav nav-tabs mb-3" id="authTabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="login-tab" data-bs-toggle="tab" href="#login">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="signup-tab" data-bs-toggle="tab" href="#signup">Sign Up</a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- Login Form -->
+                        <div class="tab-pane fade show active" id="login">
+                            <form action="{{ url_for('login') }}" method="POST">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" name="username" placeholder="Username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <input type="password" class="form-control" name="password" placeholder="Password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Login</button>
+                            </form>
+                        </div>
+
+                        <!-- Signup Form -->
+                        <div class="tab-pane fade" id="signup">
+                            <form action="{{ url_for('signup') }}" method="POST" onsubmit="return validateSignup()">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" name="username" placeholder="Username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <input type="password" id="password" class="form-control" name="password" placeholder="Password" required>
+                                </div>
+                                <div class="mb-3">
+                                    <input type="password" id="confirm_password" class="form-control" placeholder="Confirm Password" required>
+                                    <small id="passwordError" class="text-danger" style="display: none;">Passwords do not match!</small>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100">Sign Up</button>
+                            </form>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+        </div>
     </div>
 
 </body>

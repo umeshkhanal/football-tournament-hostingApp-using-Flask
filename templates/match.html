@@ -26,20 +26,21 @@
             warningBox.innerHTML = `
                 <div class="leave-content">
                     <h3>⚠ Warning!</h3>
-                    <p>The match is still in progress. Are you sure you want to leave?</p>
+                    <p>The match is still in progress. If you leave, match will end!!</p>
                     <button id="stayBtn">Stay on Page</button>
                     <button id="leaveBtn">Leave Anyway</button>
                 </div>
             `;
             document.body.appendChild(warningBox);
-
+            
             // Prevent leaving unless "Leave Anyway" is clicked
             document.getElementById("stayBtn").addEventListener("click", () => {
                 document.querySelector(".leave-warning").remove();
             });
 
             document.getElementById("leaveBtn").addEventListener("click", () => {
-                matchEnded = true; // Allow navigation
+                
+                confirmEndMatch(True);
                 window.location.href = window.location.href; // Refresh to trigger exit
             });
         }

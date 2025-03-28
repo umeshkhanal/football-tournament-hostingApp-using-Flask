@@ -1,18 +1,29 @@
 from flask import Flask, render_template, request, redirect, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, text
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:6543/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:5432/postgres'
 
 db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+
+    # Relationship to Tournament
+    tournaments = db.relationship('Tournament', backref='owner', lazy=True)
+
 
 class Tournament(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     tournament_type = db.Column(db.String(50), nullable=False)
     num_teams = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -199,7 +210,7 @@ def initialize_points_table(tournament_id):
 
 def get_points_table(tournament_id):
     teams = PointsTable.query.filter_by(tournament_id=tournament_id).all()
-    tournament = Tournament.query.get(tournament_id)
+    tournament=Tournament.query.get_or_404(tournament_id)
 
     # Compute Goal Difference (GD)
     for team in teams:
@@ -210,7 +221,10 @@ def get_points_table(tournament_id):
 
     # Check if all group matches are completed
     teams_count = len(teams)
-    total_group_matches = (teams_count * (teams_count - 1)) // 2  # Single round-robin formula
+    if tournament.tournament_type == "Round Robin":
+        total_group_matches = (teams_count * (teams_count - 1)) // 2
+    elif tournament.tournament_type == "Double Round Robin":
+        total_group_matches = (teams_count * (teams_count - 1))
     completed_matches = db.session.query(func.count(Result.id)).join(Fixture).filter(
         Fixture.tournament_id == tournament_id
     ).scalar()
@@ -221,63 +235,93 @@ def get_points_table(tournament_id):
     elif 4 <= teams_count <= 5:
         qualifying_teams = 3
     else:
-        qualifying_teams = 4  # Default: 4 for 6+ teams
-
-    # Return qualified teams only if group stage is complete
+        qualifying_teams = 4 
     qualified_teams = set()
     if completed_matches >= total_group_matches:
         qualified_teams = {sorted_teams[i].team_id for i in range(qualifying_teams)}
 
     return sorted_teams, qualified_teams
 
-
-
-# Hardcoded credentials
-USERNAME = "umeshkhanal"
-PASSWORD = "umeshkhanal912"
-
+# Login Route
 @app.route("/", methods=["GET", "POST"])
 def login():
-    if "user" in session:
-        return redirect(url_for("index"))  # Redirect if already logged in
 
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username == USERNAME and password == PASSWORD:
+        user = User.query.filter_by(username=username).first()
+
+        if user and password==user.password_hash:
             session["user"] = username
+            session["user_id"] = user.id
             return redirect(url_for("index"))
 
-        return "Invalid credentials. Try again."
+        flash("Invalid credentials. Try again.", "danger")
+        return redirect(url_for("login"))
 
     return render_template("login.html")
+
+# Signup Route
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash("User already exists. Try a different username.", "warning")
+            return redirect(url_for("signup"))
+
+        #hashed_password = generate_password_hash(password)
+        new_user = User(username=username, password_hash=password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        session["user"] = username  # Auto-login after signup
+        session["user_id"] = new_user.id
+        return redirect(url_for("index"))
+
+    return render_template("signup.html")
 
 @app.route('/index')
 def index():
     if "user" not in session:
         return redirect(url_for("login"))  # Redirect to login if not logged in
 
-    tournaments = Tournament.query.all()
+    user_id = session["user_id"]
+    tournaments = Tournament.query.filter_by(user_id=user_id).all()
+    
     return render_template('index.html', tournaments=tournaments)
 
 @app.route("/logout")
 def logout():
+    """Logout user and clear session."""
     session.pop("user", None)
+    session.pop("user_id", None)
     return redirect(url_for("login"))
-
 
 @app.route('/add_tournament', methods=['GET', 'POST'])
 def add_tournament():
+    """Allow logged-in users to add a tournament linked to their account."""
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     if request.method == 'POST':
         name = request.form['name']
         tournament_type = request.form['tournament_type']
         num_teams = request.form['num_teams']
-        new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams)
+        user_id = session["user_id"]  # Associate tournament with logged-in user
+
+        new_tournament = Tournament(name=name, tournament_type=tournament_type, num_teams=num_teams, user_id=user_id)
         db.session.add(new_tournament)
         db.session.commit()
+
         return redirect(url_for('index'))
+    
     return render_template('add_tournament.html')
+
 
 @app.route('/tournament/<int:tournament_id>')
 def team_details(tournament_id):
@@ -562,11 +606,11 @@ def end_match(fixture_id):
         fixture.winner = fixture.team2.name
     else:
         fixture.winner = "Draw"
-
+    db.session.commit()
     # **Only update points table if it's a group stage match**
     if not is_playoff:
-        team1_entry = PointsTable.query.filter_by(team_id=fixture.team1_id, tournament_id=fixture.tournament_id).first()
-        team2_entry = PointsTable.query.filter_by(team_id=fixture.team2_id, tournament_id=fixture.tournament_id).first()
+        team1_entry = PointsTable.query.filter_by(tournament_id=fixture.tournament_id,team_id=fixture.team1_id).first()
+        team2_entry = PointsTable.query.filter_by(tournament_id=fixture.tournament_id,team_id=fixture.team2_id).first()
 
         # Update goals scored & conceded
         team1_entry.goals_scored += team1_score
@@ -583,13 +627,13 @@ def end_match(fixture_id):
             team2_entry.wins += 1
             team2_entry.points += 3
             team1_entry.losses += 1
-        else:
+        elif team1_score == team2_score:
             team1_entry.draws += 1
             team2_entry.draws += 1
             team1_entry.points += 1
             team2_entry.points += 1
 
-    db.session.commit()
+        db.session.commit()
     return jsonify({
         "success": True,
         "winner": fixture.winner,
