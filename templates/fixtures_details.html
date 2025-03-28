@@ -97,7 +97,7 @@
                             {% if fixture.label and fixture.label != 'Group Stage' %}
                                 <strong>{{ fixture.label }}:</strong> {{ fixture.team1 }} vs {{ fixture.team2 }}
                             {% else %}
-                                Match {{ fixture.match_number }}: {{ fixture.team1 }} vs {{ fixture.team2 }}
+                                Group Stage: {{ fixture.team1 }} vs {{ fixture.team2 }}
                             {% endif %}
                         </span>
                         {% if fixture.winner %}
