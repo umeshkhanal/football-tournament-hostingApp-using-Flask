@@ -74,7 +74,9 @@
                 </li>
             {% endfor %}
         </ul>
+        {% if session.get('role') != 'guest' %}
         <a href="{{ url_for('add_tournament') }}" class="btn">Add Tournament</a>
+        {% endif %}
         <a href="{{ url_for('logout') }}" class="btn logout-btn">Logout</a>
     </div>
 </body>

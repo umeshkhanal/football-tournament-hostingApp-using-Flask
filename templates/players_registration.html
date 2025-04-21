@@ -14,43 +14,57 @@
       </div>
     {% endfor %}
   </div>
-{% else %}
-  <form method="POST" style="max-width: 500px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
-    <label for="num_players" style="font-weight: bold;">Number of Players:</label>
-    <input type="number" id="num_players" name="num_players" min="1" value="1" required style="padding: 5px; margin-bottom: 10px;">
-    <button type="button" onclick="generateFields()" style="padding: 5px 10px; cursor: pointer; background: #007BFF; color: white; border: none; border-radius: 5px;">Generate Fields</button>
-    
-    <div id="playerFields" style="margin-top: 10px;"></div>
-    
-    <input type="submit" value="Register Players" style="margin-top: 10px; padding: 5px 10px; cursor: pointer; background: #28A745; color: white; border: none; border-radius: 5px;">
-  </form>
 
-  <script>
-    function generateFields(){
-      const num = parseInt(document.getElementById("num_players").value);
-      const container = document.getElementById("playerFields");
-      container.innerHTML = ""; 
-
-      for (let i = 1; i <= num; i++){
-          const div = document.createElement("div");
-          div.style.marginBottom = "10px";
-          div.innerHTML = `
-              <label>Player ${i} Name: 
-                  <input type="text" name="playerName_${i}" required style="padding: 5px;">
-              </label>
-              <label>Position: 
-                  <select name="position_${i}" style="padding: 5px;">
-                      <option value="forward">Forward</option>
-                      <option value="defend">Defend</option>
-                      <option value="mid">Mid</option>
-                      <option value="goalkeeper">Goalkeeper</option>
-                  </select>
-              </label>
-              <br>
-          `;
-          container.appendChild(div);
-      }
-    }
-  </script>
+  <!-- Add Players Button -->
+  <div style="text-align: center; margin: 20px;">
+    <button onclick="togglePlayerForm()" style="padding: 8px 16px; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer;">
+      Add Players
+    </button>
+  </div>
 {% endif %}
+
+<!-- Player Registration Form (hidden initially) -->
+<form method="POST" id="playerForm" style="display: {% if not players %}block{% else %}none{% endif %}; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
+  <label for="num_players" style="font-weight: bold;">Number of Players:</label>
+  <input type="number" id="num_players" name="num_players" min="1" value="1" required style="padding: 5px; margin-bottom: 10px;">
+  
+  <button type="button" onclick="generateFields()" style="padding: 5px 10px; cursor: pointer; background: #007BFF; color: white; border: none; border-radius: 5px;">Generate Fields</button>
+  
+  <div id="playerFields" style="margin-top: 10px;"></div>
+
+  <input type="submit" value="Register Players" style="margin-top: 10px; padding: 5px 10px; cursor: pointer; background: #28A745; color: white; border: none; border-radius: 5px;">
+</form>
+
+<script>
+  function togglePlayerForm() {
+    const form = document.getElementById("playerForm");
+    form.style.display = form.style.display === "none" ? "block" : "none";
+  }
+
+  function generateFields(){
+    const num = parseInt(document.getElementById("num_players").value);
+    const container = document.getElementById("playerFields");
+    container.innerHTML = ""; 
+
+    for (let i = 1; i <= num; i++) {
+      const div = document.createElement("div");
+      div.style.marginBottom = "10px";
+      div.innerHTML = `
+        <label>Player ${i} Name: 
+          <input type="text" name="playerName_${i}" required style="padding: 5px;">
+        </label>
+        <label>Position: 
+          <select name="position_${i}" style="padding: 5px;">
+            <option value="forward">Forward</option>
+            <option value="defend">Defend</option>
+            <option value="mid">Mid</option>
+            <option value="goalkeeper">Goalkeeper</option>
+          </select>
+        </label>
+        <br>
+      `;
+      container.appendChild(div);
+    }
+  }
+</script>
 {% endblock %}

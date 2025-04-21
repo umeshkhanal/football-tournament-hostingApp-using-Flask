@@ -102,6 +102,10 @@
                 <img src="https://cdn-icons-png.flaticon.com/512/168/168573.png" alt="Fixtures">
                 <p>Auto Fixtures</p>
             </div>
+            <div class="feature-card">
+                <img src="https://cdn-icons-png.flaticon.com/512/809/809517.png" alt="Leaderboard">
+                <p>Live Leaderboard</p>
+            </div>
         </div>
     </div>
 
@@ -128,20 +132,25 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Tabs for Login/Signup -->
-                    <ul class="nav nav-tabs mb-3" id="authTabs">
+                    <!-- Tabs for Login/Signup/Guest -->
+                    <ul class="nav nav-tabs mb-3" id="authTabs" role="tablist">
                         <li class="nav-item">
-                            <a class="nav-link active" id="login-tab" data-bs-toggle="tab" href="#login">Login</a>
+                            <a class="nav-link active" id="login-tab" data-bs-toggle="tab" href="#login" role="tab">Login</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" id="signup-tab" data-bs-toggle="tab" href="#signup">Sign Up</a>
+                            <a class="nav-link" id="signup-tab" data-bs-toggle="tab" href="#signup" role="tab">Sign Up</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="guest-tab" data-bs-toggle="tab" href="#guest" role="tab">Login as Guest</a>
                         </li>
                     </ul>
-
-                    <div class="tab-content">
+                
+                    <div class="tab-content" id="authTabsContent">
+                
                         <!-- Login Form -->
-                        <div class="tab-pane fade show active" id="login">
+                        <div class="tab-pane fade show active" id="login" role="tabpanel">
                             <form action="{{ url_for('login') }}" method="POST">
+                                <input type="hidden" name="role" value="user">
                                 <div class="mb-3">
                                     <input type="text" class="form-control" name="username" placeholder="Username" required>
                                 </div>
@@ -151,9 +160,9 @@
                                 <button type="submit" class="btn btn-primary w-100">Login</button>
                             </form>
                         </div>
-
+                
                         <!-- Signup Form -->
-                        <div class="tab-pane fade" id="signup">
+                        <div class="tab-pane fade" id="signup" role="tabpanel">
                             <form action="{{ url_for('signup') }}" method="POST" onsubmit="return validateSignup()">
                                 <div class="mb-3">
                                     <input type="text" class="form-control" name="username" placeholder="Username" required>
@@ -168,8 +177,21 @@
                                 <button type="submit" class="btn btn-success w-100">Sign Up</button>
                             </form>
                         </div>
-                    </div> 
+                
+                        <!-- Guest Login Form -->
+                        <div class="tab-pane fade" id="guest" role="tabpanel">
+                            <form action="{{ url_for('login') }}" method="POST">
+                                <input type="hidden" name="role" value="guest">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" name="username" placeholder="Enter guest name" required>
+                                </div>
+                                <button type="submit" class="btn btn-secondary w-100">Login as Guest</button>
+                            </form>
+                        </div>
+                
+                    </div>
                 </div>
+                
             </div>
         </div>
     </div>

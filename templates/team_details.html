@@ -80,10 +80,12 @@
                 <a href="{{ url_for('register_players', team_id=team.id) }}">{{ team.name }}</a>
             </span>
             <input type="text" id="input_{{ team.id }}" value="{{ team.name }}">
+            {% if session.get('role') != 'guest' %}
             <div>
                 <button class="button" id="edit_{{ team.id }}" onclick="enableEdit('{{ team.id }}')">Edit</button>
                 <button class="button" id="save_{{ team.id }}" onclick="saveEdit('{{ team.id }}')" style="display:none;">Save</button>
             </div>
+            {% endif %}
         </li>
     {% endfor %}
 </ul>

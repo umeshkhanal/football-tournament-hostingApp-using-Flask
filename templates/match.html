@@ -160,6 +160,10 @@
                 if (data.winner !== "Draw") {
                     showCelebration(data.winner);
                 }
+                const redirectLink = document.querySelector(".back-link");
+                if (redirectLink) {
+                    window.location.href = redirectLink.href;
+                }
             }).catch(error => console.error("Error:", error));
         }
 

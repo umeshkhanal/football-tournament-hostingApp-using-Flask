@@ -4,7 +4,8 @@ from sqlalchemy import desc, func, text
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:5432/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:6543/postgres'
+
 
 db = SQLAlchemy(app)
 
@@ -42,6 +43,7 @@ import json
 
 class Fixture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    label=db.Column(db.String(100), nullable=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
     team1_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
     team2_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
@@ -111,12 +113,13 @@ def generate_fixtures(tournament):
             schedule.append(match_round)
             # Rotate teams to balance the fixture
             team_list.insert(1, team_list.pop())
-
+    i=1
     # Convert schedule into fixture list
     for match_round in schedule:
         for team1, team2 in match_round:
-            fixtures.append({"match_id": match_id, "team1": team1, "team2": team2})
+            fixtures.append({"label": str(i), "team1": team1, "team2": team2})
             match_id += 1
+            i+=1
 
     return fixtures
 
@@ -162,23 +165,23 @@ def generate_playoff_fixtures(tournament, total_group_matches):
 
     # **6️⃣ Generate Playoff Matches Based on Number of Teams**
     if team_count == 3:
-        playoff_fixtures.append({"match_id": match_id, "team1": teams[0].id, "team2": teams[1].id})
+        playoff_fixtures.append({"label": "Final", "team1": teams[0].id, "team2": teams[1].id})
 
     elif team_count in [4, 5]:
-        semi_final = {"match_id": match_id, "team1": teams[1].id, "team2": teams[2].id}
+        semi_final = {"label": "Semi Final", "team1": teams[1].id, "team2": teams[2].id}
         playoff_fixtures.append(semi_final)
         match_id += 1
-        final_match = {"match_id": match_id, "team1": teams[0].id, "team2": "Winner of Semi"}
+        final_match = {"label": "Final", "team1": teams[0].id, "team2": "Winner of Semi"}
         playoff_fixtures.append(final_match)
 
     elif team_count >= 6:
-        semi1 = {"match_id": match_id, "team1": teams[0].id, "team2": teams[3].id}
+        semi1 = {"label": "Semi Final1", "team1": teams[0].id, "team2": teams[3].id}
         playoff_fixtures.append(semi1)
         match_id += 1
-        semi2 = {"match_id": match_id, "team1": teams[1].id, "team2": teams[2].id}
+        semi2 = {"label": "Semi Final2", "team1": teams[1].id, "team2": teams[2].id}
         playoff_fixtures.append(semi2)
         match_id += 1
-        final_match = {"match_id": match_id, "team1": "Winner of Semi 1", "team2": "Winner of Semi 2"}
+        final_match = {"label": "Final", "team1": "Winner of Semi 1", "team2": "Winner of Semi 2"}
         playoff_fixtures.append(final_match)
     return playoff_fixtures
 
@@ -206,7 +209,10 @@ def initialize_points_table(tournament_id):
         db.session.bulk_save_objects(new_entries)  # Efficient bulk insert
         db.session.commit()
 
+import re
 
+def natural_sort_key(label):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', label)]
 
 def get_points_table(tournament_id):
     teams = PointsTable.query.filter_by(tournament_id=tournament_id).all()
@@ -242,25 +248,48 @@ def get_points_table(tournament_id):
 
     return sorted_teams, qualified_teams
 
+
+from functools import wraps
+from flask import session, redirect, url_for, flash
+
+def role_required(roles):
+    def wrapper(view_func):
+        @wraps(view_func)
+        def decorated_view(*args, **kwargs):
+            if session.get("role") not in roles:
+                return redirect(url_for("index"))
+            return view_func(*args, **kwargs)
+        return decorated_view
+    return wrapper
+
 # Login Route
 @app.route("/", methods=["GET", "POST"])
 def login():
-
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-
+        role = request.form.get("role")
         user = User.query.filter_by(username=username).first()
-
-        if user and password==user.password_hash:
+        if user and role == "guest":
+            # Guest login: No password, assign role
             session["user"] = username
             session["user_id"] = user.id
+            session["role"] = "guest"
+            return redirect(url_for("index"))
+
+        # Regular login
+        
+        if user and password == user.password_hash:
+            session["user"] = username
+            session["user_id"] = user.id
+            session["role"] = "admin"  # Or user.role if you store it in DB
             return redirect(url_for("index"))
 
         flash("Invalid credentials. Try again.", "danger")
         return redirect(url_for("login"))
 
     return render_template("login.html")
+
 
 # Signup Route
 @app.route("/signup", methods=["GET", "POST"])
@@ -272,7 +301,7 @@ def signup():
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             flash("User already exists. Try a different username.", "warning")
-            return redirect(url_for("login"))
+            return redirect(url_for("signup"))
 
         #hashed_password = generate_password_hash(password)
         new_user = User(username=username, password_hash=password)
@@ -281,6 +310,7 @@ def signup():
 
         session["user"] = username  # Auto-login after signup
         session["user_id"] = new_user.id
+        session["role"] = 'admin'
         return redirect(url_for("index"))
 
     return render_template("signup.html")
@@ -303,6 +333,7 @@ def logout():
     return redirect(url_for("login"))
 
 @app.route('/add_tournament', methods=['GET', 'POST'])
+@role_required(['admin'])
 def add_tournament():
     """Allow logged-in users to add a tournament linked to their account."""
     if "user" not in session:
@@ -332,6 +363,7 @@ def team_details(tournament_id):
     return render_template('team_details.html', tournament=tournament, teams=teams)
 
 @app.route('/tournament/<int:tournament_id>/teams', methods=['GET', 'POST'])
+@role_required(['admin'])
 def add_teams(tournament_id):
     tournament = Tournament.query.get_or_404(tournament_id)
     
@@ -353,6 +385,7 @@ def add_teams(tournament_id):
 from flask import request, jsonify
 
 @app.route('/edit_team/<int:team_id>', methods=['POST'])
+@role_required(['admin'])
 def edit_team(team_id):
     team = Team.query.get_or_404(team_id)
     data = request.get_json()
@@ -392,14 +425,16 @@ def get_fixtures(tournament_id):
                 new_fixture = Fixture(
                     tournament_id=tournament.id,
                     team1_id=fixture["team1"] if isinstance(fixture["team1"], int) else None,
-                    team2_id=fixture["team2"] if isinstance(fixture["team2"], int) else None
+                    team2_id=fixture["team2"] if isinstance(fixture["team2"], int) else None,
+                    label=fixture['label']
                 )
                 db.session.add(new_fixture)
 
             db.session.commit()
             time.sleep(1)  
 
-    fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()
+    fixtures = Fixture.query.filter_by(tournament_id=tournament_id).order_by(Fixture.id).all()
+
     
     if not fixtures:
         generated_fixtures = generate_fixtures(tournament)
@@ -408,72 +443,63 @@ def get_fixtures(tournament_id):
                 Fixture(
                     tournament_id=tournament.id,
                     team1_id=fixture["team1"],
-                    team2_id=fixture["team2"]
+                    team2_id=fixture["team2"],
+                    label=fixture['label']
                 )
                 for fixture in generated_fixtures
             ]
             db.session.bulk_save_objects(new_fixtures)
             db.session.commit()
             time.sleep(1)  
-            fixtures = Fixture.query.filter_by(tournament_id=tournament_id).all()  
+            fixtures = Fixture.query.filter_by(tournament_id=tournament_id).order_by(Fixture.id).all()
+
 
     fixture_list = []
-    playoff_fixtures = fixtures[total_group_matches:]  
-    semifinal_winners = []  
-
+    semifinal_winners = []
     for index, fixture in enumerate(fixtures):
         team1 = Team.query.get(fixture.team1_id) if fixture.team1_id else None
         team2 = Team.query.get(fixture.team2_id) if fixture.team2_id else None
-        label = None
+        label = fixture.label
 
-        if index >= total_group_matches:
-            knockout_index = index - total_group_matches
-            num_fixtures = len(playoff_fixtures)
-
-            if num_fixtures == 1:
-                label = "Final"
-            elif num_fixtures == 2:
-                label = "Semifinal" if knockout_index == 0 else "Final"
-            elif num_fixtures == 3:
-                label = "Semifinal 1" if knockout_index == 0 else ("Semifinal 2" if knockout_index == 1 else "Final")
-            else:
-                label = f"Knockout Match {knockout_index + 1}"
-
-        if label and "Semifinal" in label and fixture.winner:
+        if "Semi Final" in label and fixture.winner:
             winner_team = Team.query.filter_by(name=fixture.winner).first()
             if winner_team:
-                semifinal_winners.append(winner_team.id)
-
+                semifinal_winners.append([winner_team.id,winner_team])
+        elif label=="Final" and (team1 is None or team2 is None):
+            if len(semifinal_winners) == 2:
+                if fixture.team1_id is None:
+                    fixture.team1_id = semifinal_winners[1][0]
+                    team1=semifinal_winners[1][1]
+                if fixture.team2_id is None:
+                    fixture.team2_id = semifinal_winners[0][0]
+                    team1=semifinal_winners[0][1]
+            elif len(semifinal_winners) == 1:
+                if fixture.team2_id is None:
+                    fixture.team2_id = semifinal_winners[0][0]
+                    team1=semifinal_winners[0][1]
+            db.session.commit()
+            time.sleep(1)
+        
         fixture_list.append({
             "id": fixture.id,
             "match_number": index + 1,
-            "label": label if label else "Group Stage",
+            "label": label,
             "team1": team1.name if team1 else "TBD",
             "team2": team2.name if team2 else "TBD",
             "winner": fixture.winner if fixture.winner else None
         })
-
-    for fixture in playoff_fixtures:
-        label = fixture_list[fixtures.index(fixture)]["label"]
-        if "Final" in label:
-            if len(semifinal_winners) == 2:
-                if fixture.team1_id is None:
-                    fixture.team1_id = semifinal_winners[1]
-            elif len(semifinal_winners) == 1:
-                if fixture.team2_id is None:
-                    fixture.team2_id = semifinal_winners[0]
-            db.session.commit()
-            time.sleep(1)
+    fixture_list.sort(key=lambda x: x["id"])
     return render_template('fixtures_details.html', tournament=tournament, fixture_list=fixture_list)
 
 
 @app.route('/team/<int:team_id>/players', methods=['GET', 'POST'])
+@role_required(['admin'])
 def register_players(team_id):
     team = Team.query.get_or_404(team_id)
     tournament = Tournament.query.get_or_404(team.tournament_id)
     players = Player.query.filter_by(team_id=team.id).all()
 
-    if request.method == 'POST' and not players:
+    if request.method == 'POST':
         # Only allow registration if players do not already exist.
         num_players = int(request.form.get('num_players', 0))
         for i in range(1, num_players + 1):
@@ -488,6 +514,7 @@ def register_players(team_id):
 
 
 @app.route('/edit_player/<int:player_id>', methods=['POST'])
+@role_required(['admin'])
 def edit_player(player_id):
     player = Player.query.get_or_404(player_id)
     data = request.get_json()
@@ -638,7 +665,9 @@ def end_match(fixture_id):
         "success": True,
         "winner": fixture.winner,
         "team1_score": team1_score,
-        "team2_score": team2_score
+        "team2_score": team2_score,
+        "is_playoff": is_playoff,
+        "go_to_penalty": is_playoff and team1_score == team2_score
     })
 
 
@@ -729,7 +758,6 @@ def top_scorers(tournament_id):
                           .limit(5).all()
 
     return render_template("player_stats.html", tournament=tournament, top_scorers=top_scorers)
-
 
 if __name__ == '__main__':
     with app.app_context():
