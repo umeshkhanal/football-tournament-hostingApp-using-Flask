@@ -3,17 +3,17 @@
 {% block title %}Match Results{% endblock %}
 
 {% block content %}
-<h2 class="heading">Past Match Results</h2>
+<h2 class="heading">Past 6 Matches Results</h2>
 {% if results %}
     <div class="results-container">
         {% for result in results %}
         <div class="match-box">
             <h3>
-                {% if result.label %}
+                {% if 'Final' not in label %}
+                    Match 
+                {% endif %} 
                     {{ result.label }}  
-                {% else %}
-                    Match {{ result.match_id }}
-                {% endif %}
+
             </h3>
             <div class="match-header">
                 <span class="team-name">{{ result.team1 }}</span>
