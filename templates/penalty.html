@@ -442,7 +442,10 @@ button:hover {
         </div>
         
         <button class="end-match" onclick="endMatch()">End Penalty</button>
-        
+        <h3 id="winner">Winner: {% if fixture.winner %} {{ fixture.winner }} {% else %} Not decided {% endif %}</h3>
+    
+        <!-- Celebration Container -->
+        <div id="celebration-container"></div>
     
         <a href="{{ url_for('get_fixtures', tournament_id=fixture.tournament_id) }}" class="back-link">Back to Fixtures</a>
     </div>
