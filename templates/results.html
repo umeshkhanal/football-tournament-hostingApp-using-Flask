@@ -9,8 +9,7 @@
         {% for result in results %}
         <div class="match-box">
             <h3>
-                {% if 'Final' in label %}
-                {% else %} 
+                {% if 'Final' not in result.label %}
                 Match 
                 {% endif %} 
                     {{ result.label }}  
