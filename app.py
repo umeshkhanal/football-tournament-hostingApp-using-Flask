@@ -462,7 +462,10 @@ def get_fixtures(tournament_id):
         label = fixture.label
 
         if "Semi Final" in label and fixture.winner:
-            winner_team = Team.query.filter_by(name=fixture.winner).first()
+            winner=fixture.winner
+            if 'Penal' in fixture.winner:
+                winner=winner.split()[0]
+            winner_team = Team.query.filter_by(name=winner).first()
             if winner_team:
                 semifinal_winners.append([winner_team.id,winner_team])
         elif label=="Final" and (team1 is None or team2 is None):
@@ -486,7 +489,7 @@ def get_fixtures(tournament_id):
             "label": label,
             "team1": team1.name if team1 else "TBD",
             "team2": team2.name if team2 else "TBD",
-            "winner": fixture.winner if fixture.winner else None
+            "winner": (fixture.winner).split()[0] if fixture.winner else None
         })
     fixture_list.sort(key=lambda x: x["id"])
     return render_template('fixtures_details.html', tournament=tournament, fixture_list=fixture_list)
@@ -685,6 +688,7 @@ def match_results(tournament_id):
 
 
     results = []
+    
     for index, fixture in enumerate(fixtures):
         team1 = Team.query.get(fixture.team1_id)
         team2 = Team.query.get(fixture.team2_id)
@@ -695,7 +699,12 @@ def match_results(tournament_id):
 
         # Assign labels only to playoff matches
         label = fixture.label
-
+        winner=fixture.winner
+        penal=''
+        if 'Penal' in winner:
+            w=winner.split()
+            winner=w[0]
+            penal=w[1]
         results.append({
             "team1": team1.name if team1 else "TBD",
             "team2": team2.name if team2 else "TBD",
@@ -703,7 +712,8 @@ def match_results(tournament_id):
             "team2_score": len(team2_scorers),
             "team1_scorers": team1_scorers,
             "team2_scorers": team2_scorers,
-            "winner": fixture.winner,  
+            "winner": winner,  
+            "penal": penal,
             "label": label  
         })
 
@@ -729,9 +739,48 @@ def top_scorers(tournament_id):
     top_scorers = Player.query.join(Team, Player.team_id == Team.id) \
                           .filter(Team.tournament_id == tournament_id) \
                           .order_by(Player.goals.desc()) \
-                          .limit(5).all()
+                          .limit(10).all()
 
     return render_template("player_stats.html", tournament=tournament, top_scorers=top_scorers)
+
+@app.route('/conduct-penalty/<int:fixture_id>')
+def conduct_penalty(fixture_id):
+    fixture = Fixture.query.get_or_404(fixture_id)
+    
+    team1 = Team.query.get_or_404(fixture.team1_id)
+    team2 = Team.query.get_or_404(fixture.team2_id)
+
+    return render_template('penalty.html', fixture=fixture, team1=team1, team2=team2)
+
+
+@app.route("/end_penalty/<int:fixture_id>", methods=["POST"])
+def end_penalty(fixture_id):
+    # Get data from the frontend
+    data = request.get_json()
+    team1_goals = data['team1_goals']
+    team2_goals = data['team2_goals']
+    
+    # Fetch the fixture from the database
+    fixture = Fixture.query.get(fixture_id)
+    
+    # Determine the winner
+    if team1_goals > team2_goals:
+        winner = fixture.team1.name
+    elif team2_goals > team1_goals:
+        winner = fixture.team2.name
+    else:
+        winner = "Draw"
+    fixture.winner=winner+f' Penalties:({team1_goals}-{team2_goals})'
+    db.session.commit()
+    time.sleep(1)
+    # Return the updated scores and winner
+    return jsonify({
+        "team1_score": team1_goals,
+        "team2_score": team2_goals,
+        "winner": fixture.winner
+    })
+
+
 
 if __name__ == '__main__':
     with app.app_context():

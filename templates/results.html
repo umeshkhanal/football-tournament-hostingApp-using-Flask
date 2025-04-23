@@ -24,7 +24,7 @@
                 <span class="team-scorers">⚽ {{ ", ".join(result.team1_scorers) }}</span>
                 <span class="team-scorers">⚽ {{ ", ".join(result.team2_scorers) }}</span>
             </div>
-            <p class="winner"><strong>Winner:</strong> {{ result.winner }}</p>
+            <p class="winner"><strong>Winner:</strong> {{ result.winner }} <br> {{ result.penal }}</p>
         </div>
         {% endfor %}
     </div>

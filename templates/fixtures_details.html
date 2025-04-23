@@ -152,8 +152,19 @@
                             {% endif %}
                         </span>
                         {% if fixture.winner %}
-                            <span class="winner">Winner: {{ fixture.winner }}</span>
+                            {% if 'Final' in fixture.label and fixture.winner=='Draw' and session.get('role') != 'guest' %}
+                                <a href="#" 
+                                class="conduct-match" 
+                                data-url="{{ url_for('conduct_penalty', fixture_id=fixture.id) }}" 
+                                onclick="openWarningModal(this)">
+                                Conduct Penalty
+                                </a>
+                             {% else %}
+                             <span class="winner">Winner: {{ fixture.winner }}</span>
+                        
+                            {% endif %}
                         {% else %}
+
                         {% if session.get('role') != 'guest' %}
                         <a href="#" 
                         class="conduct-match" 

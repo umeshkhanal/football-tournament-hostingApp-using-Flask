@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match {{ fixture.id }} - {{ team1.name }} vs {{ team2.name }}</title>
+    <script>
+        let matchEnded = false; // Track match status
+
+        // Show custom pop-up instead of default alert
+        window.addEventListener("beforeunload", function (event) {
+            if (!matchEnded) {
+                showLeaveWarning();
+                event.preventDefault();
+                
+                return "";
+            }
+        });
+
+        function showLeaveWarning() {
+            // Prevent duplicate popups
+            if (document.querySelector(".leave-warning")) return;
+
+            let warningBox = document.createElement("div");
+            warningBox.classList.add("leave-warning");
+            warningBox.innerHTML = `
+                <div class="leave-content">
+                    <h3>⚠ Warning!</h3>
+                    <p>The match is still in progress. If you leave, match will end!!</p>
+                    <button id="stayBtn">Stay on Page</button>
+                    <button id="leaveBtn">Leave Anyway</button>
+                </div>
+            `;
+            document.body.appendChild(warningBox);
+            
+            // Prevent leaving unless "Leave Anyway" is clicked
+            document.getElementById("stayBtn").addEventListener("click", () => {
+                document.querySelector(".leave-warning").remove();
+            });
+
+            document.getElementById("leaveBtn").addEventListener("click", () => {
+                confirmEndMatch(True);
+                window.location.href = window.location.href; // Refresh to trigger exit
+            });
+        }
+
+        let team1Goals = [];
+        let team2Goals = [];
+
+        function updateScore(team) {
+            if (document.querySelector(".popup-box")) return;
+
+            let confirmBox = document.createElement("div");
+            confirmBox.classList.add("popup-box");
+            confirmBox.innerHTML = `
+                <div class="popup-content">
+                    <h3>Confirm Goal</h3>
+                    <p>Are you sure it is GOAL? This action cannot be undone.</p>
+                    <button id="confirmGoalBtn">Yes</button>
+                    <button id="cancelBtn">No</button>
+                </div>
+            `;
+            document.body.appendChild(confirmBox);
+
+            // If "Cancel" is clicked, remove the pop-up
+            document.getElementById("cancelBtn").addEventListener("click", () => {
+                document.querySelector(".popup-box").remove();
+            });
+
+            // If "Yes" is clicked, update the score
+            document.getElementById("confirmGoalBtn").addEventListener("click", () => {
+                document.querySelector(".popup-box").remove();
+                let playerId = document.getElementById(team + "_scorer").value;
+
+                // Update the score on the frontend
+                if (team === "team1") {
+                    team1Goals.push(playerId);
+                } else {
+                    team2Goals.push(playerId);
+                }
+
+                // Update the scoreboard text
+                document.getElementById("scoreboard").innerText = `${team1Goals.length} - ${team2Goals.length}`;
+
+
+            });
+        }
+
+        function endMatch() {
+            // Prevent duplicate pop-ups
+            if (document.querySelector(".popup-box")) return;
+
+            let confirmBox = document.createElement("div");
+            confirmBox.classList.add("popup-box");
+            confirmBox.innerHTML = `
+                <div class="popup-content">
+                    <h3>⚠ Confirm End Match</h3>
+                    <p>Are you sure you want to end the match? This action cannot be undone.</p>
+                    <button id="confirmEndBtn">Yes, End Match</button>
+                    <button id="cancelEndBtn">No</button>
+                </div>
+            `;
+            document.body.appendChild(confirmBox);
+
+            // If "Cancel" is clicked, remove the pop-up
+            document.getElementById("cancelEndBtn").addEventListener("click", () => {
+                document.querySelector(".popup-box").remove();
+            });
+
+            // If "Yes, End Match" is clicked, proceed with ending the match
+            document.getElementById("confirmEndBtn").addEventListener("click", () => {
+                confirmEndMatch(true);
+            });
+        }
+
+        function confirmEndMatch(confirmEnd) {
+            if (!confirmEnd) {
+                document.querySelector(".popup-box").remove(); // Remove pop-up if canceled
+                return;
+            }
+
+            // Send the match score to backend when ending match
+            fetch(`/end_penalty/{{ fixture.id }}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    team1_goals: team1Goals.length, 
+                    team2_goals: team2Goals.length 
+                })
+            }).then(response => response.json())
+            .then(data => {
+                // Update the scoreboard
+                document.getElementById("scoreboard").innerText = `${data.team1_score} - ${data.team2_score}`;
+
+                let winnerElement = document.getElementById("winner");
+                winnerElement.innerText = "Winner: " + data.winner;
+                matchEnded = true; // Allow leaving the page now
+                
+                // Disable goal selection & buttons
+                document.getElementById("team1_scorer").disabled = true;
+                document.getElementById("team2_scorer").disabled = true;
+                document.querySelectorAll("button").forEach(btn => btn.disabled = true);
+
+                document.querySelector(".popup-box").remove(); // Remove pop-up after confirmation
+                
+                // Winner Animation
+                winnerElement.style.fontSize = "24px";
+                winnerElement.style.fontWeight = "bold";
+                winnerElement.style.color = "#FFD700";  // Gold color
+                winnerElement.style.animation = "winnerGlow 1.5s infinite alternate";
+
+                // If there's a winner, trigger celebration
+                if (data.winner !== "Draw") {
+                    showCelebration(data.winner);
+                }
+                const redirectLink = document.querySelector(".back-link");
+                if (redirectLink) {
+                    window.location.href = redirectLink.href;
+                }
+            }).catch(error => console.error("Error:", error));
+        }
+
+        // Celebration Effect
+        function showCelebration(winner) {
+            let celebrationContainer = document.createElement("div");
+            celebrationContainer.classList.add("celebration");
+            
+            let winnerText = document.createElement("h2");
+            winnerText.innerText = `🎉 Congratulations ${winner}! 🎉`;
+            winnerText.classList.add("winner-text");
+
+            celebrationContainer.appendChild(winnerText);
+            document.body.appendChild(celebrationContainer);
+
+            // Create Confetti effect
+            let confettiCount = 100;
+            for (let i = 0; i < confettiCount; i++) {
+                let confetti = document.createElement("div");
+                confetti.classList.add("confetti");
+                confetti.style.left = Math.random() * 100 + "vw";
+                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                confetti.style.animationDuration = (Math.random() * 2 + 3) + "s";
+                document.body.appendChild(confetti);
+            }
+
+            // Remove celebration elements after 5 seconds
+            setTimeout(() => {
+                celebrationContainer.remove();
+                document.querySelectorAll(".confetti").forEach(confetti => confetti.remove());
+            }, 5000);
+        }
+    </script>
+
+   <style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        text-align: center;
+        padding: 20px;
+    }
+    .container {
+        max-width: 500px;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        margin: auto;
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .scoreboard {
+        font-size: 24px;
+        font-weight: bold;
+        background: #007BFF;
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        display: inline-block;
+        margin: 10px 0;
+    }
+    .team {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f9f9f9;
+        padding: 10px;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    select {
+        padding: 5px;
+        font-size: 14px;
+    }
+    button {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    button:hover {
+        background: #218838;
+    }
+    .end-match {
+        background: #dc3545;
+    }
+    .end-match:hover {
+        background: #c82333;
+    }
+    #winner {
+        font-size: 18px;
+        font-weight: bold;
+        margin-top: 15px;
+        color: #d9534f;
+    }
+    .back-link {
+        text-decoration: none;
+        color: #007BFF;
+        font-weight: bold;
+        display: block;
+        margin-top: 15px;
+    }
+    @keyframes winnerGlow {
+    from {
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    }
+    to {
+        text-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 30px rgba(255, 215, 0, 1);
+    }
+}
+
+.celebration {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.winner-text {
+    font-size: 24px;
+    font-weight: bold;
+    color: #008000;
+}
+
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0.8;
+    animation: fall linear infinite;
+}
+
+@keyframes fall {
+    0% { transform: translateY(0px) rotate(0deg); }
+    100% { transform: translateY(100vh) rotate(360deg); }
+}
+.popup-box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    z-index: 1000;
+    width: 300px;
+}
+
+.popup-content {
+    padding: 15px;
+}
+
+h3 {
+    margin: 0;
+    color: #d9534f;
+}
+
+p {
+    margin: 10px 0;
+}
+
+button {
+    margin: 10px;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#confirmEndBtn {
+    background-color: #d9534f;
+    color: white;
+}
+
+#cancelEndBtn {
+    background-color: #5bc0de;
+    color: white;
+}
+
+button:hover {
+    opacity: 0.8;
+}
+
+/* Winner Glow Animation */
+@keyframes winnerGlow {
+    0% { text-shadow: 0 0 5px gold; }
+    100% { text-shadow: 0 0 15px gold, 0 0 30px orange; }
+}
+
+.leave-warning {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.leave-content {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    width: 300px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.leave-content h3 {
+    color: red;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.leave-content p {
+    font-size: 1em;
+    margin-bottom: 15px;
+}
+
+.leave-content button {
+    margin: 5px;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#stayBtn {
+    background-color: green;
+    color: white;
+}
+
+#leaveBtn {
+    background-color: red;
+    color: white;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ team1.name }} vs {{ team2.name }}</h1>
+        <div class="scoreboard" id="scoreboard">0 - 0</div>
+        
+        <div class="team">
+            <span><strong>{{ team1.name }}</strong></span>
+            <select id="team1_scorer">
+                    <option value="P">Penalty</option>
+
+            </select>
+            <button onclick="updateScore('team1')">Goal!</button>
+        </div>
+        
+        <div class="team">
+            <span><strong>{{ team2.name }}</strong></span>
+            <select id="team2_scorer">
+                    <option value="P">Penalty</option>
+
+            </select>
+            <button onclick="updateScore('team2')">Goal!</button>
+        </div>
+        
+        <button class="end-match" onclick="endMatch()">End Penalty</button>
+        
+    
+        <a href="{{ url_for('get_fixtures', tournament_id=fixture.tournament_id) }}" class="back-link">Back to Fixtures</a>
+    </div>
+</body>
+</html>
