@@ -777,7 +777,7 @@ def end_penalty(fixture_id):
     return jsonify({
         "team1_score": team1_goals,
         "team2_score": team2_goals,
-        "winner": fixture.winner
+        "winner": winner
     })
 
 
