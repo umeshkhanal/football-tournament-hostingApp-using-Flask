@@ -675,28 +675,16 @@ def end_match(fixture_id):
 @app.route('/results/<int:tournament_id>', methods=['GET'])
 def match_results(tournament_id):
     tournament = Tournament.query.get_or_404(tournament_id)
-    total_teams = tournament.num_teams  # Total number of teams
-
-    # Determine total group matches based on tournament type
-    if tournament.tournament_type == "Round Robin":
-        total_group_matches = (total_teams * (total_teams - 1)) // 2
-    elif tournament.tournament_type == "Double Round Robin":
-        total_group_matches = (total_teams * (total_teams - 1))
-    else:
-        total_group_matches = 0
-
     # Get all completed fixtures (matches with a winner)
-    fixtures = Fixture.query.filter(
-        Fixture.tournament_id == tournament_id, 
-        Fixture.winner.isnot(None)
-    ).all()
 
-    total_completed_matches = len(fixtures)
-    total_playoff_matches = total_completed_matches - total_group_matches if total_completed_matches > total_group_matches else 0
+
+    fixtures = Fixture.query.filter(
+        Fixture.tournament_id == tournament_id,
+        Fixture.winner.isnot(None)
+    ).order_by(desc(Fixture.id)).limit(6).all()
+
 
     results = []
-    match_no = 1
-
     for index, fixture in enumerate(fixtures):
         team1 = Team.query.get(fixture.team1_id)
         team2 = Team.query.get(fixture.team2_id)
@@ -706,22 +694,9 @@ def match_results(tournament_id):
         team2_scorers = [Player.query.get(player_id).name for player_id in goal_data.get("team2", [])]
 
         # Assign labels only to playoff matches
-        label = None
-        if index >= total_group_matches:
-            knockout_index = index - total_group_matches
-            num_fixtures = total_playoff_matches
-
-            if num_fixtures == 1:
-                label = "Final"
-            elif num_fixtures == 2:
-                label = "Semifinal" if knockout_index == 0 else "Final"
-            elif num_fixtures == 3:
-                label = "Semifinal 1" if knockout_index == 0 else ("Semifinal 2" if knockout_index == 1 else "Final")
-            else:
-                label = f"Knockout Match {knockout_index + 1}"
+        label = fixture.label
 
         results.append({
-            "match_id": match_no,
             "team1": team1.name if team1 else "TBD",
             "team2": team2.name if team2 else "TBD",
             "team1_score": len(team1_scorers),
@@ -729,9 +704,8 @@ def match_results(tournament_id):
             "team1_scorers": team1_scorers,
             "team2_scorers": team2_scorers,
             "winner": fixture.winner,  
-            "label": label  # Added playoff label
+            "label": label  
         })
-        match_no += 1
 
     return render_template('results.html', tournament=tournament, results=results)
 
