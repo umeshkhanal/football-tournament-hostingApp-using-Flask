@@ -4,7 +4,7 @@ from sqlalchemy import desc, func, text
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.aywynqqvpuspbdbzajmn:Umesh119139143@aws-0-ap-south-1.pooler.supabase.com:6543/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.fydticzidojiglxjayma:UmeshKhanal@143@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres'
 
 
 db = SQLAlchemy(app)
